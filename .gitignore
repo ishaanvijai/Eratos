@@ -1,0 +1,30 @@
+# Candidate data — never commit
+cvs/
+*.jsonl
+results.csv
+results.xlsx
+
+# Real prompt files (may contain confidential company info)
+system.txt
+prompt.txt
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
