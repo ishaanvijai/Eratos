@@ -8,7 +8,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from .config import CV_DIR, PROVIDER, MODEL_NAME, UNPROCESSED_DIR
+from .config import CV_DIR, PROVIDER, MODEL_NAME, UNPROCESSED_DIR, SUPPORTED_EXTS
 from . import pipeline
 from .providers import get_provider
 
@@ -20,15 +20,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _quarantine_non_pdfs(cv_dir: Path, unprocessed_dir: Path) -> None:
-    non_pdfs = [f for f in cv_dir.iterdir() if f.is_file() and f.suffix.lower() != ".pdf"]
-    if not non_pdfs:
+def _quarantine_unsupported(cv_dir: Path, unprocessed_dir: Path) -> None:
+    unsupported = [
+        f for f in cv_dir.iterdir()
+        if f.is_file() and f.suffix.lower() not in SUPPORTED_EXTS
+    ]
+    if not unsupported:
         return
     unprocessed_dir.mkdir(parents=True, exist_ok=True)
-    for f in non_pdfs:
+    for f in unsupported:
         dest = unprocessed_dir / f.name
         shutil.move(str(f), dest)
-        logger.info("Quarantined non-PDF: %s -> %s", f.name, dest)
+        logger.info("Quarantined unsupported format: %s -> %s", f.name, dest)
 
 
 def main() -> None:
@@ -48,7 +51,7 @@ def main() -> None:
         sys.exit(f"CV directory not found: {cv_dir}")
 
     unprocessed = UNPROCESSED_DIR if UNPROCESSED_DIR.parent == cv_dir else cv_dir / "_unprocessed"
-    _quarantine_non_pdfs(cv_dir, unprocessed)
+    _quarantine_unsupported(cv_dir, unprocessed)
 
     provider = get_provider(args.provider, model=args.model)
     asyncio.run(pipeline.run(provider, cv_dir, force=args.force, limit=args.limit))

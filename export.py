@@ -16,6 +16,7 @@ _COLUMNS = [
     "still_in_school",
     "years_experience",
     "fit_score",
+    "talent_flag",
     "score_rationale",
     "summary",
     "source_file",

@@ -17,6 +17,9 @@ class CVResult(BaseModel):
     # score_rationale before fit_score so the model reasons first
     score_rationale: str
     fit_score: int = Field(..., ge=1, le=10)
+    # Orthogonal to fit_score: standout talent worth tracking regardless of fit
+    # for THIS role. null = not flagged; otherwise a short phrase on why.
+    talent_flag: Optional[str] = None
     source_file: str
 
     @field_validator("fit_score")

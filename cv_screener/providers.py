@@ -51,17 +51,25 @@ class GoogleProvider(Provider):
         import asyncio
         import tempfile
         import os
+        from pathlib import Path
+
+        from . import config
 
         model = self._get_model(system_prompt)
 
-        # Upload PDF via Files API
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+        # Pick MIME type and temp-file suffix from the source extension
+        # (Gemini accepts PDFs and images, but rejects an upload with the wrong type).
+        ext = Path(source_file).suffix.lower()
+        mime_type = config.MIME_TYPES.get(ext, "application/pdf")
+
+        # Upload the CV (PDF or image) via Files API
+        with tempfile.NamedTemporaryFile(suffix=ext or ".pdf", delete=False) as tmp:
             tmp.write(pdf_bytes)
             tmp_path = tmp.name
 
         try:
             uploaded = await asyncio.to_thread(
-                self._genai.upload_file, tmp_path, mime_type="application/pdf"
+                self._genai.upload_file, tmp_path, mime_type=mime_type
             )
         finally:
             os.unlink(tmp_path)
@@ -116,6 +124,7 @@ def _cv_result_schema() -> dict:
             "summary": {"type": "string"},
             "score_rationale": {"type": "string"},
             "fit_score": {"type": "integer"},
+            "talent_flag": {"type": "string", "nullable": True},
         },
         "required": [
             "name",

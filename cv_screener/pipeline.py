@@ -12,6 +12,7 @@ from .config import (
     CONCURRENCY,
     ERRORS_FILE,
     RESULTS_FILE,
+    SUPPORTED_EXTS,
     SYSTEM_PROMPT_FILE,
     USER_PROMPT_FILE,
 )
@@ -141,7 +142,10 @@ async def run(
     system_prompt = _load_system_prompt()
     done = set() if force else _load_done(results_file)
 
-    pdfs = sorted(pdf_dir.glob("*.pdf"))
+    pdfs = sorted(
+        p for p in pdf_dir.glob("*")
+        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTS
+    )
     pending = [p for p in pdfs if p.name not in done]
 
     # pending[:None] returns the whole list, so this is a no-op when limit is None.
