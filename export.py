@@ -8,8 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 _COLUMNS = [
-    "fit_score",
-    "score_rationale",
     "name",
     "email",
     "undergrad_university",
@@ -17,6 +15,8 @@ _COLUMNS = [
     "field_of_study",
     "still_in_school",
     "years_experience",
+    "fit_score",
+    "score_rationale",
     "summary",
     "source_file",
 ]

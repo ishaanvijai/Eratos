@@ -37,6 +37,10 @@ def main() -> None:
     parser.add_argument("--provider", default=PROVIDER)
     parser.add_argument("--model", default=MODEL_NAME)
     parser.add_argument("--force", action="store_true", help="Re-process all CVs")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Process at most N CVs (use this for a small test run)",
+    )
     args = parser.parse_args()
 
     cv_dir: Path = args.cv_dir
@@ -47,7 +51,7 @@ def main() -> None:
     _quarantine_non_pdfs(cv_dir, unprocessed)
 
     provider = get_provider(args.provider, model=args.model)
-    asyncio.run(pipeline.run(provider, cv_dir, force=args.force))
+    asyncio.run(pipeline.run(provider, cv_dir, force=args.force, limit=args.limit))
 
 
 if __name__ == "__main__":

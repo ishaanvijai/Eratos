@@ -28,3 +28,7 @@ env/
 .vscode/
 .idea/
 *.swp
+
+/resumes from viraj
+
+run.log

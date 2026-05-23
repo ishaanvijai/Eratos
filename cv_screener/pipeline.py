@@ -24,6 +24,24 @@ _MAX_RETRIES = 5
 _BASE_BACKOFF = 1.0  # seconds
 
 
+class _Progress:
+    """A shared, completion-order counter for concurrent tasks.
+
+    asyncio runs our coroutines concurrently, so we can't number CVs by
+    loop order — we number them as each one *finishes*. The asyncio event
+    loop is single-threaded, so a plain += between awaits is already safe;
+    this wrapper just keeps the state and total in one place.
+    """
+
+    def __init__(self, total: int) -> None:
+        self._done = 0
+        self.total = total
+
+    def tick(self) -> tuple[int, int]:
+        self._done += 1
+        return self._done, self.total
+
+
 def _load_system_prompt() -> str:
     system = SYSTEM_PROMPT_FILE.read_text(encoding="utf-8").strip()
     prompt = USER_PROMPT_FILE.read_text(encoding="utf-8").strip()
@@ -90,18 +108,20 @@ async def _process_one(
     system_prompt: str,
     results_file: Path,
     errors_file: Path,
+    progress: "_Progress",
 ) -> None:
     source_file = pdf_path.name
     async with sem:
         pdf_bytes = pdf_path.read_bytes()
         result = await _score_with_retry(provider, pdf_bytes, system_prompt, source_file)
 
+    n, total = progress.tick()
     if result is not None:
         _append_result(result, results_file)
-        logger.info("OK  %s  score=%d", source_file, result.fit_score)
+        logger.info("[%d/%d] OK  %s  score=%d", n, total, source_file, result.fit_score)
     else:
         _append_error(source_file, "max retries exceeded", errors_file)
-        logger.warning("ERR %s", source_file)
+        logger.warning("[%d/%d] ERR %s", n, total, source_file)
 
 
 async def run(
@@ -112,10 +132,11 @@ async def run(
     results_file: Optional[Path] = None,
     errors_file: Optional[Path] = None,
     concurrency: Optional[int] = None,
+    limit: Optional[int] = None,
 ) -> None:
     results_file = results_file or RESULTS_FILE
     errors_file = errors_file or ERRORS_FILE
-    limit = concurrency or CONCURRENCY
+    conc_limit = concurrency or CONCURRENCY
 
     system_prompt = _load_system_prompt()
     done = set() if force else _load_done(results_file)
@@ -123,17 +144,22 @@ async def run(
     pdfs = sorted(pdf_dir.glob("*.pdf"))
     pending = [p for p in pdfs if p.name not in done]
 
+    # pending[:None] returns the whole list, so this is a no-op when limit is None.
+    pending = pending[:limit]
+
     logger.info(
-        "CVs: %d total, %d already done, %d to process",
+        "CVs: %d total, %d already done, %d to process%s",
         len(pdfs),
         len(done),
         len(pending),
+        f" (limited to {limit})" if limit is not None else "",
     )
 
-    sem = asyncio.Semaphore(limit)
+    sem = asyncio.Semaphore(conc_limit)
+    progress = _Progress(total=len(pending))
     tasks = [
-        _process_one(sem, provider, p, system_prompt, results_file, errors_file)
+        _process_one(sem, provider, p, system_prompt, results_file, errors_file, progress)
         for p in pending
     ]
     await asyncio.gather(*tasks)
-    logger.info("Pipeline complete.")
+    logger.info("Pipeline complete: %d CVs processed.", progress._done)
